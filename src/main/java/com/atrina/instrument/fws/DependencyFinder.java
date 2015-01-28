@@ -1,4 +1,4 @@
-package com.atrina.fws.instrument;
+package com.atrina.instrument.fws;
 
 import java.util.ArrayList;
 import java.util.Iterator;
