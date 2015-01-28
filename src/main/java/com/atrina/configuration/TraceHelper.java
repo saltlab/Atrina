@@ -123,6 +123,27 @@ public class TraceHelper {
 		return deps;
 	}
 	
+	public static ArrayList<RWOperation> getDataDependencies(ArrayList<RWOperation> trace, VariableRead vr) throws Exception {
+		int i = trace.indexOf(vr);
+		ArrayList<RWOperation> deps = new ArrayList<RWOperation>();
+		RWOperation current;
+	
+
+		for (int j = 0; j <= i; j++) {
+			current = trace.get(j);
+
+			// TODO: Might need better criteria for checking if write is dependent on read
+			// (programmer might split assignment operation between mutliple lines)
+			if (current instanceof VariableWrite && current.getLineNo() == vr.getLineNo()) {
+				deps.add(current);
+			
+			} else if (current.getLineNo() != vr.getLineNo()) {
+				break;
+			}
+		}
+		return deps;
+	}
+	
 	public static ArrayList<RWOperation> getDataDependenciesLoose(ArrayList<RWOperation> trace, RWOperation vw) throws Exception {
 		int i = trace.indexOf(vw);
 		ArrayList<RWOperation> deps = new ArrayList<RWOperation>();

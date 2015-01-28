@@ -5,6 +5,7 @@ import java.util.ArrayList;
 public class VariableWrite extends RWOperation {
 	private String value;
 	private ArrayList<RWOperation> dataDependencies = new ArrayList<RWOperation>();
+	private String definingFunction;
 	private String alias;
 	public String type = "Write";
 
@@ -35,6 +36,15 @@ public class VariableWrite extends RWOperation {
 	public void setAlias(String o) {
 		alias = o;
 	}
+	
+	public String getDefiningFunction() {
+		return definingFunction;
+	}
+
+	public void setDefiningFunction(String o) {
+		definingFunction = o;
+	}
+	
 	
 	
 }
