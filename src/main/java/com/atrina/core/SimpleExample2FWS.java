@@ -503,7 +503,7 @@ public class SimpleExample2FWS {
 		}
 
 
-		for (int j = all.indexOf(bottom); j >= i; j--) {
+		for (int j = i; j <= all.indexOf(bottom); j--) {
 			next = all.get(j);
 
 			/** 1 (ONE): Cut out function calls **/
