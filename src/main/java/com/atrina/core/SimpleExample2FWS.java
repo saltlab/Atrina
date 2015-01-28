@@ -439,6 +439,10 @@ public class SimpleExample2FWS {
 
 
 
+
+
+
+
 	static boolean waitForWindowClose(WebDriverWait w) throws TimeoutException {
 		// Function to check if window has been closed
 
@@ -483,7 +487,7 @@ public class SimpleExample2FWS {
 	}
 
 
-	private void computeBackwardSlice(RWOperation top, RWOperation bottom, String name, ArrayList<RWOperation> all, boolean contained, String definingFunction, RWOperation beginRead) {
+	private void computeForwardSlice(RWOperation top, RWOperation bottom, String name, ArrayList<RWOperation> all, boolean contained, String definingFunction, RWOperation beginRead) {
 		int i = (top == null ? 0 : all.indexOf(top));
 		RWOperation next = null;
 		RWOperation nestedTop, nestedBottom;
