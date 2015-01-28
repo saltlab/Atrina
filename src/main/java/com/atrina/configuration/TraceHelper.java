@@ -127,7 +127,7 @@ public class TraceHelper {
 		int i = trace.indexOf(vr);
 		ArrayList<RWOperation> deps = new ArrayList<RWOperation>();
 		RWOperation current;
-	
+		boolean jumpAllowed=false;
 
 		for (int j = 0; j <= i; j++) {
 			current = trace.get(j);
@@ -137,7 +137,28 @@ public class TraceHelper {
 			if (current instanceof VariableWrite && current.getLineNo() == vr.getLineNo()) {
 				deps.add(current);
 			
-			} else if (current.getLineNo() != vr.getLineNo()) {
+			} 
+			else if (current instanceof ArgumentRead
+					// If a reference is passed to a new function
+					&& TraceHelper.isComplex(((ArgumentRead) current).getValue())){
+				
+				for (int k = j; k <=i ; k++) {
+					if (trace.get(k) instanceof ArgumentWrite
+							&& ((ArgumentWrite) trace.get(k)).getArgumentNumber() == ((ArgumentRead) current).getArgumentNumber()
+							&& ((ArgumentWrite) trace.get(k)).getValue().equals(((ArgumentRead) current).getValue())
+							&& ((ArgumentWrite) trace.get(k)).getFunctionName().equals(((ArgumentRead) current).getFunctionName())) {
+						
+						
+						
+						j = k;
+						jumpAllowed=true;
+					}
+			
+				
+				}
+			}
+			
+			else if (current.getLineNo() != vr.getLineNo() && !jumpAllowed) {
 				break;
 			}
 		}
