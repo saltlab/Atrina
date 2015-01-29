@@ -513,18 +513,10 @@ public class SimpleExample2FWS {
 				if (definingFunction.equals("global")) {
 					// Keep looking for writes to this global variable (regardless of from which function)
 					continue;
-				} /*else if (!definingFunction.equals("global") && TraceHelper.isReadAsynchronous(j, definingFunction, all)) {
-					// Jump to last instance of defining function and look for writes there.
-					int bottomOfLastFn = TraceHelper.getEndOfLastFnInstance(j, definingFunction, all);
-	                   writePartialSliceToDisk(partialSlice);
-	                   highlightLine(beginRead, new ArrayList<RWOperation>());
-					computeForwardSlice(null, all.get(bottomOfLastFn-1), name, all, true, definingFunction, beginRead);
-					return;
-				*/
-			//	} 
+				} 
 				else {
 
-					String alias = null;
+					
 					nestedTop = TraceHelper.getBeginningOfFunction((ReturnStatementValue) next, all);
 					nestedBottom = next;
 
@@ -541,14 +533,14 @@ public class SimpleExample2FWS {
 							
 
 									// TODO: implement TraceHelper.getReturnDependencies
-									ArrayList<RWOperation> argDependencies = TraceHelper.getDataDependencies(all, (ArgumentRead)all.get(p));
+								//	ArrayList<RWOperation> argDependencies = TraceHelper.getDataDependencies(all, (ArgumentRead)all.get(p));
 
-									for (int w = 0; w < argDependencies.size(); w++) {
+									
 										// TODO: What if an argument influenced the return value? --> do we need to allow slicing to exit the function?
 										// NOT being run yet
-						                highlightLine(argDependencies.get(w), partialSlice);
-										computeForwardSlice(nestedTop, next, argDependencies.get(w).getVariable(), all, true, "global", argDependencies.get(w));
-									}
+						                highlightLine((ArgumentRead)all.get(p), partialSlice);
+										computeForwardSlice(nestedTop, next, ((ArgumentRead)all.get(p)).getVariable(), all, true, ((ArgumentRead)all.get(p)).getDefiningFunction(), (ArgumentRead)all.get(p));
+									
 						}
 					}
 
@@ -569,34 +561,32 @@ public class SimpleExample2FWS {
 				// Backwards slice on arguments and base object (if class method)
 				ArrayList<RWOperation> deps = null;
 				try {
-					deps = TraceHelper.getDataDependencies(all, (ReturnValueWrite) next);
+					
+					for (int p = i; p <= j; p++) {
+						// Possible for multiple references to variable passed in as separate arguments (but why?)
+						if (all.get(p) instanceof ArgumentRead
+								&& ((ArgumentRead) all.get(p)).getVariable().indexOf(name) == 0
+								&& TraceHelper.isComplex(((ArgumentRead) all.get(p)).getValue())) {
+							
+
+									// TODO: implement TraceHelper.getReturnDependencies
+								//	ArrayList<RWOperation> argDependencies = TraceHelper.getDataDependencies(all, (ArgumentRead)all.get(p));
+
+									
+										// TODO: What if an argument influenced the return value? --> do we need to allow slicing to exit the function?
+										// NOT being run yet
+						                highlightLine((ArgumentRead)all.get(p), partialSlice);
+										computeForwardSlice(nestedTop, next, ((ArgumentRead)all.get(p)).getVariable(), all, true, ((ArgumentRead)all.get(p)).getDefiningFunction(), (ArgumentRead)all.get(p));
+									
+						}
+					}
+					
+					
+				
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-				for (int z = 0; z < deps.size(); z++) {
-				    highlightLine(deps.get(z), partialSlice);
-					computeBackwardSlice(null, all.get(all.indexOf(deps.get(z))-1), deps.get(z).getVariable(), all, true, ((VariableRead) deps.get(z)).getDefiningFunction(), deps.get(z));
-				}
-
-
-				// Compute backwards slice on return statement dependencies
-				for (int r = all.indexOf(next); r >= i; r--) {
-					if (all.get(r) instanceof ReturnStatementValue
-							// Might need to change the below line, currently 'ReturnStatementValue' doesn't save the function name (Apr. 23)
-							&& ((ReturnStatementValue) all.get(r)).getFunctionName().equals(((ReturnValueWrite) next).getFunctionName())) {
-						nestedTop = TraceHelper.getBeginningOfFunction((ReturnStatementValue) all.get(r), all);
-
-						// TODO: implement TraceHelper.getReturnDependencies
-						ArrayList<RWOperation> rsDependencies = TraceHelper.getReturnDependencies(all, (ReturnStatementValue) all.get(r));
-
-						for (int w = 0; w < rsDependencies.size(); w++) {
-							// TODO: What if an argument influenced the return value? --> do we need to allow slicing to exit the function?
-							// NOT being run yet
-			                highlightLine(rsDependencies.get(w), partialSlice);
-							computeBackwardSlice(nestedTop, all.get(r), rsDependencies.get(w).getVariable(), all, true, "global", rsDependencies.get(w));
-						}
-					}
-				}
+			
 				/** 3 (OLD): Basic slicing **/
 			} else if (next instanceof VariableWrite && ((VariableWrite) next).getVariable().equals(name)) {
 

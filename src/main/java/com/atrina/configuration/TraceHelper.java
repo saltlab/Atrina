@@ -129,7 +129,7 @@ public class TraceHelper {
 		RWOperation current;
 		boolean jumpAllowed = false;
 
-		for (int j = i - 1; j >= 0; j--) {
+		for (int j = 0; j <= i-1; j++) {
 			current = trace.get(j);
 
 			// TODO: Might need better criteria for checking if write is dependent on read
