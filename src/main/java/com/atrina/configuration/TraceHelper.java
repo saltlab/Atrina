@@ -295,6 +295,41 @@ public class TraceHelper {
 		return null;
 	}
 
+	//added by Shabnam
+	public static int getEndOfFunctionIndexInTrace(ArgumentWrite enter, ArrayList<RWOperation> trace) {
+		// PRE: ArgumentRead enter (first argument) must have an ArgumentWrite succeeding it for guaranteed 
+		//      correct behavior
+		RWOperation next;
+		int depth = -1;
+
+		for (int i = trace.indexOf(enter); i < trace.size(); i++) {
+			next = trace.get(i);
+
+			if (next instanceof ReturnStatementValue
+					&& enter.getFunctionName().equals(((ReturnStatementValue) next).getFunctionName())) {
+				if (depth == 0) {
+					return i;
+				} else {
+					depth--;
+				}
+			} else if (next instanceof ArgumentWrite
+					&& enter.getFunctionName().equals(((ArgumentWrite) next).getFunctionName())) {
+				// Group or single 'ArgumentWrite' means a function is entered
+				int j;
+				for (j = i; j < trace.size(); j++) {
+					if (!(trace.get(j) instanceof ArgumentWrite)) {
+						break;
+					}
+				}
+				depth++;
+				// Continue search after the arguments have been initialized
+				i = j - 1;
+			}
+		}
+
+		return -1;
+	}
+	
 	public static boolean isReadAsynchronous (int currentPosition, String definingFn, ArrayList<RWOperation> trace) {
 		RWOperation next;
 
@@ -328,6 +363,23 @@ public class TraceHelper {
 
 		// The function was not encountered, assume asynchronous
 		return -1;		
+	}
+	
+	// added by Shabnam
+	public static int getEndOfLastFnInstanceForReadArgument(int currentArgReadPosition, int bottom, ArrayList<RWOperation> trace){
+		RWOperation next;
+		next = trace.get(currentArgReadPosition);
+		for (int k = currentArgReadPosition; k < trace.indexOf(bottom); k++) {
+			
+			
+			if (trace.get(k) instanceof ArgumentWrite
+					&& ((ArgumentWrite) trace.get(k)).getArgumentNumber() == ((ArgumentRead) next).getArgumentNumber()
+					&& ((ArgumentWrite) trace.get(k)).getValue().equals(((ArgumentRead) next).getValue())
+					&& ((ArgumentWrite) trace.get(k)).getFunctionName().equals(((ArgumentRead) next).getFunctionName())){
+				return getEndOfFunctionIndexInTrace((ArgumentWrite) trace.get(k), trace);
+			}
+		}
+		return -1;
 	}
 
 	public static RWOperation getBeginningOfFunction(ReturnStatementValue exit, ArrayList<RWOperation> trace) {

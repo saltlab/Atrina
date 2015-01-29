@@ -513,14 +513,16 @@ public class SimpleExample2FWS {
 				if (definingFunction.equals("global")) {
 					// Keep looking for writes to this global variable (regardless of from which function)
 					continue;
-				} else if (!definingFunction.equals("global") && TraceHelper.isReadAsynchronous(j, definingFunction, all)) {
+				} /*else if (!definingFunction.equals("global") && TraceHelper.isReadAsynchronous(j, definingFunction, all)) {
 					// Jump to last instance of defining function and look for writes there.
 					int bottomOfLastFn = TraceHelper.getEndOfLastFnInstance(j, definingFunction, all);
 	                   writePartialSliceToDisk(partialSlice);
 	                   highlightLine(beginRead, new ArrayList<RWOperation>());
-					computeBackwardSlice(null, all.get(bottomOfLastFn-1), name, all, true, definingFunction, beginRead);
+					computeForwardSlice(null, all.get(bottomOfLastFn-1), name, all, true, definingFunction, beginRead);
 					return;
-				} else {
+				*/
+			//	} 
+				else {
 
 					String alias = null;
 					nestedTop = TraceHelper.getBeginningOfFunction((ReturnStatementValue) next, all);
@@ -531,7 +533,7 @@ public class SimpleExample2FWS {
 					j = all.indexOf(nestedTop) + 1;
 
 					// Check if the variable of interest is passed into a function by reference (could be altered there)
-					for (int p = j; p >= i; p--) {
+					for (int p = i; p <= j; p++) {
 						// Possible for multiple references to variable passed in as separate arguments (but why?)
 						if (all.get(p) instanceof ArgumentRead
 								&& ((ArgumentRead) all.get(p)).getVariable().indexOf(name) == 0
