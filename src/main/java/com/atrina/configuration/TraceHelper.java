@@ -127,38 +127,31 @@ public class TraceHelper {
 		int i = trace.indexOf(vr);
 		ArrayList<RWOperation> deps = new ArrayList<RWOperation>();
 		RWOperation current;
-		boolean jumpAllowed=false;
+		boolean jumpAllowed = false;
 
-		for (int j = 0; j <= i; j++) {
+		for (int j = i - 1; j >= 0; j--) {
 			current = trace.get(j);
 
 			// TODO: Might need better criteria for checking if write is dependent on read
 			// (programmer might split assignment operation between mutliple lines)
-			if (current instanceof VariableWrite && current.getLineNo() == vr.getLineNo()) {
+			if (current instanceof VariableRead && current.getLineNo() == vr.getLineNo()) {
 				deps.add(current);
-			
-			} 
-			else if (current instanceof ArgumentRead
-					// If a reference is passed to a new function
-					&& TraceHelper.isComplex(((ArgumentRead) current).getValue())){
-				
-				for (int k = j; k <=i ; k++) {
-					if (trace.get(k) instanceof ArgumentWrite
-							&& ((ArgumentWrite) trace.get(k)).getArgumentNumber() == ((ArgumentRead) current).getArgumentNumber()
-							&& ((ArgumentWrite) trace.get(k)).getValue().equals(((ArgumentRead) current).getValue())
-							&& ((ArgumentWrite) trace.get(k)).getFunctionName().equals(((ArgumentRead) current).getFunctionName())) {
-						
-						
-						
-						j = k;
-						jumpAllowed=true;
-					}
-			
-				
-				}
-			}
-			
-			else if (current.getLineNo() != vr.getLineNo() && !jumpAllowed) {
+				jumpAllowed = false;
+			} /*else if (current instanceof PropertyRead && current.getLineNo() == vw.getLineNo()) {
+				j = getAtomicIndex(trace, (PropertyRead) current);
+				deps.add(current);
+				jumpAllowed = false;
+			} */else if (current instanceof ReturnStatementValue) {
+				// Line number is allow to change (!= vw.getLineNo())
+
+
+				j = trace.indexOf(getBeginningOfFunction((ReturnStatementValue) current, trace));
+
+
+				// set a flag?
+				jumpAllowed = true;
+
+			} else if (current.getLineNo() != vr.getLineNo() && !jumpAllowed) {
 				break;
 			}
 		}
@@ -295,40 +288,7 @@ public class TraceHelper {
 		return null;
 	}
 
-	//added by Shabnam
-	public static int getEndOfFunctionIndexInTrace(ArgumentWrite enter, ArrayList<RWOperation> trace) {
-		// PRE: ArgumentRead enter (first argument) must have an ArgumentWrite succeeding it for guaranteed 
-		//      correct behavior
-		RWOperation next;
-		int depth = -1;
 
-		for (int i = trace.indexOf(enter); i < trace.size(); i++) {
-			next = trace.get(i);
-
-			if (next instanceof ReturnStatementValue
-					&& enter.getFunctionName().equals(((ReturnStatementValue) next).getFunctionName())) {
-				if (depth == 0) {
-					return i;
-				} else {
-					depth--;
-				}
-			} else if (next instanceof ArgumentWrite
-					&& enter.getFunctionName().equals(((ArgumentWrite) next).getFunctionName())) {
-				// Group or single 'ArgumentWrite' means a function is entered
-				int j;
-				for (j = i; j < trace.size(); j++) {
-					if (!(trace.get(j) instanceof ArgumentWrite)) {
-						break;
-					}
-				}
-				depth++;
-				// Continue search after the arguments have been initialized
-				i = j - 1;
-			}
-		}
-
-		return -1;
-	}
 	
 	public static boolean isReadAsynchronous (int currentPosition, String definingFn, ArrayList<RWOperation> trace) {
 		RWOperation next;
@@ -365,22 +325,7 @@ public class TraceHelper {
 		return -1;		
 	}
 	
-	// added by Shabnam
-	public static int getEndOfLastFnInstanceForReadArgument(int currentArgReadPosition, int bottom, ArrayList<RWOperation> trace){
-		RWOperation next;
-		next = trace.get(currentArgReadPosition);
-		for (int k = currentArgReadPosition; k < trace.indexOf(bottom); k++) {
-			
-			
-			if (trace.get(k) instanceof ArgumentWrite
-					&& ((ArgumentWrite) trace.get(k)).getArgumentNumber() == ((ArgumentRead) next).getArgumentNumber()
-					&& ((ArgumentWrite) trace.get(k)).getValue().equals(((ArgumentRead) next).getValue())
-					&& ((ArgumentWrite) trace.get(k)).getFunctionName().equals(((ArgumentRead) next).getFunctionName())){
-				return getEndOfFunctionIndexInTrace((ArgumentWrite) trace.get(k), trace);
-			}
-		}
-		return -1;
-	}
+
 
 	public static RWOperation getBeginningOfFunction(ReturnStatementValue exit, ArrayList<RWOperation> trace) {
 		RWOperation next;
