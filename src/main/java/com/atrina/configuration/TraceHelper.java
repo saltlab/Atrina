@@ -123,40 +123,7 @@ public class TraceHelper {
 		return deps;
 	}
 	
-	public static ArrayList<RWOperation> getDataDependencies(ArrayList<RWOperation> trace, VariableRead vr) throws Exception {
-		int i = trace.indexOf(vr);
-		ArrayList<RWOperation> deps = new ArrayList<RWOperation>();
-		RWOperation current;
-		boolean jumpAllowed = false;
 
-		for (int j = 0; j <= i-1; j++) {
-			current = trace.get(j);
-
-			// TODO: Might need better criteria for checking if write is dependent on read
-			// (programmer might split assignment operation between mutliple lines)
-			if (current instanceof VariableRead && current.getLineNo() == vr.getLineNo()) {
-				deps.add(current);
-				jumpAllowed = false;
-			} /*else if (current instanceof PropertyRead && current.getLineNo() == vw.getLineNo()) {
-				j = getAtomicIndex(trace, (PropertyRead) current);
-				deps.add(current);
-				jumpAllowed = false;
-			} */else if (current instanceof ReturnStatementValue) {
-				// Line number is allow to change (!= vw.getLineNo())
-
-
-				j = trace.indexOf(getBeginningOfFunction((ReturnStatementValue) current, trace));
-
-
-				// set a flag?
-				jumpAllowed = true;
-
-			} else if (current.getLineNo() != vr.getLineNo() && !jumpAllowed) {
-				break;
-			}
-		}
-		return deps;
-	}
 	
 	public static ArrayList<RWOperation> getDataDependenciesLoose(ArrayList<RWOperation> trace, RWOperation vw) throws Exception {
 		int i = trace.indexOf(vw);

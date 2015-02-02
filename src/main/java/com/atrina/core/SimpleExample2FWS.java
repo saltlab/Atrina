@@ -503,7 +503,7 @@ public class SimpleExample2FWS {
 		}
 
 
-		for (int j = i; j <= all.indexOf(bottom); j--) {
+		for (int j = i; j <= all.indexOf(bottom); j++) {
 			next = all.get(j);
 
 			/** 1 (ONE): Cut out function calls **/
@@ -513,10 +513,16 @@ public class SimpleExample2FWS {
 				if (definingFunction.equals("global")) {
 					// Keep looking for writes to this global variable (regardless of from which function)
 					continue;
-				} 
-				else {
+				} else if (!definingFunction.equals("global") && TraceHelper.isReadAsynchronous(j, definingFunction, all)) {
+					// Jump to last instance of defining function and look for writes there.
+					int bottomOfLastFn = TraceHelper.getEndOfLastFnInstance(j, definingFunction, all);
+	                   writePartialSliceToDisk(partialSlice);
+	                   highlightLine(beginRead, new ArrayList<RWOperation>());
+					computeForwardSlice(null, all.get(bottomOfLastFn-1), name, all, true, definingFunction, beginRead);
+					return;
+				} else {
 
-					
+					String alias = null;
 					nestedTop = TraceHelper.getBeginningOfFunction((ReturnStatementValue) next, all);
 					nestedBottom = next;
 
@@ -530,25 +536,67 @@ public class SimpleExample2FWS {
 						if (all.get(p) instanceof ArgumentRead
 								&& ((ArgumentRead) all.get(p)).getVariable().indexOf(name) == 0
 								&& TraceHelper.isComplex(((ArgumentRead) all.get(p)).getValue())) {
-							
 
-									// TODO: implement TraceHelper.getReturnDependencies
-								//	ArrayList<RWOperation> argDependencies = TraceHelper.getDataDependencies(all, (ArgumentRead)all.get(p));
 
-									
-										// TODO: What if an argument influenced the return value? --> do we need to allow slicing to exit the function?
-										// NOT being run yet
-						                highlightLine((ArgumentRead)all.get(p), partialSlice);
-										computeForwardSlice(nestedTop, next, ((ArgumentRead)all.get(p)).getVariable(), all, true, ((ArgumentRead)all.get(p)).getDefiningFunction(), (ArgumentRead)all.get(p));
-									
+							// Get the local name in the called function (argument name)
+							for (int q = j; q <= all.indexOf(nestedBottom); q++) {
+								if (all.get(q) instanceof ArgumentWrite
+										&& ((ArgumentWrite) all.get(q)).getFunctionName().equals(((ArgumentRead) all.get(p)).getFunctionName())
+										&& ((ArgumentWrite) all.get(q)).getArgumentNumber() == ((ArgumentRead) all.get(p)).getArgumentNumber()) {
+									alias = ((ArgumentWrite) all.get(q)).getVariable();
+
+									//TODO: implement 'computeForwardSlice'
+									// Compute forward slice of reference/argument
+									computeForwardSlice(all.get(q), nestedBottom, alias, all);
+
+									if (all.get(q).getChildren().size() > 0) {
+										// If the function call does change the object via reference, highlight the origin of the call:
+										highlightLine(all.get(p), partialSlice);
+
+										for (int o = q; o <= all.indexOf(nestedBottom); o++) {
+											if (all.get(o).getSliceStatus() == true) {
+
+												all.get(o).omitFromSlice();
+												all.get(o).clearChildren();
+												all.get(o).setParent(null);
+
+												// Add line to slice
+												highlightLine(all.get(o), partialSlice);
+
+
+												if (all.get(o) instanceof VariableWrite) {
+													// NEW, TEST THIS
+													// Need to slice all the dependencies for this write (this update through alias)
+													ArrayList<RWOperation> deps = null;
+													try {
+														deps = TraceHelper.getDataDependencies(all, (VariableWrite) all.get(o));
+													} catch (Exception e) {
+														e.printStackTrace();
+													}
+													for (int r = 0; r < deps.size(); r++) {
+													    highlightLine(deps.get(r), partialSlice);
+														computeForwardSlice(null, deps.get(r), deps.get(r).getVariable(), all, true, ((VariableRead) deps.get(r)).getDefiningFunction(), deps.get(r));
+													}
+												}
+											}
+										}
+									}
+
+
+
+
+									break;
+
+								}
+
+							}
+							if (alias != null) break; 
+
 						}
 					}
-
 				}
-			}
-				
 				/** 2 (TWO): Return value from function is used in write-of-interest **/
-			 else if (next instanceof ReturnValueWrite
+			} else if (next instanceof ReturnValueWrite
 					// Decide between indexOf and equals...below 'else if' uses equals.
 					&& next.getVariable().indexOf(name) == 0) {		
 
@@ -561,32 +609,34 @@ public class SimpleExample2FWS {
 				// Backwards slice on arguments and base object (if class method)
 				ArrayList<RWOperation> deps = null;
 				try {
-					
-					for (int p = i; p <= j; p++) {
-						// Possible for multiple references to variable passed in as separate arguments (but why?)
-						if (all.get(p) instanceof ArgumentRead
-								&& ((ArgumentRead) all.get(p)).getVariable().indexOf(name) == 0
-								&& TraceHelper.isComplex(((ArgumentRead) all.get(p)).getValue())) {
-							
-
-									// TODO: implement TraceHelper.getReturnDependencies
-								//	ArrayList<RWOperation> argDependencies = TraceHelper.getDataDependencies(all, (ArgumentRead)all.get(p));
-
-									
-										// TODO: What if an argument influenced the return value? --> do we need to allow slicing to exit the function?
-										// NOT being run yet
-						                highlightLine((ArgumentRead)all.get(p), partialSlice);
-										computeForwardSlice(nestedTop, next, ((ArgumentRead)all.get(p)).getVariable(), all, true, ((ArgumentRead)all.get(p)).getDefiningFunction(), (ArgumentRead)all.get(p));
-									
-						}
-					}
-					
-					
-				
+					deps = TraceHelper.getDataDependencies(all, (ReturnValueWrite) next);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-			
+				for (int z = 0; z < deps.size(); z++) {
+				    highlightLine(deps.get(z), partialSlice);
+					computeForwardSlice(null, all.get(all.indexOf(deps.get(z))-1), deps.get(z).getVariable(), all, true, ((VariableRead) deps.get(z)).getDefiningFunction(), deps.get(z));
+				}
+
+
+				// Compute backwards slice on return statement dependencies
+				for (int r = i; r <= all.indexOf(next); r++) {
+					if (all.get(r) instanceof ReturnStatementValue
+							// Might need to change the below line, currently 'ReturnStatementValue' doesn't save the function name (Apr. 23)
+							&& ((ReturnStatementValue) all.get(r)).getFunctionName().equals(((ReturnValueWrite) next).getFunctionName())) {
+						nestedTop = TraceHelper.getBeginningOfFunction((ReturnStatementValue) all.get(r), all);
+
+						// TODO: implement TraceHelper.getReturnDependencies
+						ArrayList<RWOperation> rsDependencies = TraceHelper.getReturnDependencies(all, (ReturnStatementValue) all.get(r));
+
+						for (int w = 0; w < rsDependencies.size(); w++) {
+							// TODO: What if an argument influenced the return value? --> do we need to allow slicing to exit the function?
+							// NOT being run yet
+			                highlightLine(rsDependencies.get(w), partialSlice);
+							computeForwardSlice(nestedTop, all.get(r), rsDependencies.get(w).getVariable(), all, true, "global", rsDependencies.get(w));
+						}
+					}
+				}
 				/** 3 (OLD): Basic slicing **/
 			} else if (next instanceof VariableWrite && ((VariableWrite) next).getVariable().equals(name)) {
 
@@ -597,7 +647,7 @@ public class SimpleExample2FWS {
 						highlightLine(next, partialSlice);
 					} else {
 						// Special case linking arguments from call to declaration
-						for (int q = all.indexOf(next)-1; q >= 0; q--) {
+						for (int q = 0; q <= all.indexOf(next)-1; q++) {
 							if (all.get(q) instanceof ArgumentRead 
 									&& ((ArgumentRead) all.get(q)).getArgumentNumber() == ((ArgumentWrite) next).getArgumentNumber()
 									&& ((ArgumentRead) all.get(q)).getFunctionName().equals(((ArgumentWrite) next).getFunctionName())
@@ -611,7 +661,7 @@ public class SimpleExample2FWS {
 								// Allowed to look through the parent/calling function for argument slice
 								// GOOD TO GO
 
-								computeBackwardSlice(null, all.get(q-1), all.get(q).getVariable(), all, true, ((VariableRead) all.get(q)).getDefiningFunction(), all.get(q));
+								computeForwardSlice(null, all.get(q-1), all.get(q).getVariable(), all, true, ((VariableRead) all.get(q)).getDefiningFunction(), all.get(q));
 
 
 								// Break from looking from Argument read
@@ -642,7 +692,7 @@ public class SimpleExample2FWS {
 						if (deps.get(z).getVariable().split("\\.").length > 1) {
 	                          highlightLine(deps.get(z), partialSlice);
 
-							computeBackwardSlice(null,
+							computeForwardSlice(null,
 									all.get(all.indexOf(deps.get(z))-1),
 									deps.get(z).getVariable().split("\\.")[0],
 									all,
@@ -652,7 +702,7 @@ public class SimpleExample2FWS {
 						} else {
                             highlightLine(deps.get(z), partialSlice);
 
-							computeBackwardSlice(null,
+							computeForwardSlice(null,
 									all.get(all.indexOf(deps.get(z))-1),
 									deps.get(z).getVariable(),
 									all,
@@ -688,7 +738,7 @@ public class SimpleExample2FWS {
 								// Add control/branches to slice
 								highlightLine(nextCtrl, partialSlice);
 
-								computeBackwardSlice(null,
+								computeForwardSlice(null,
 										nextCtrl,
 										nextCtrl.getVariable(),
 										all,
@@ -722,7 +772,7 @@ public class SimpleExample2FWS {
 							// Add control/branches to slice
 							highlightLine(nextCtrl, partialSlice);
 
-							computeBackwardSlice(null,
+							computeForwardSlice(null,
 									nextCtrl,
 									nextCtrl.getVariable(),
 									all,
@@ -754,7 +804,7 @@ public class SimpleExample2FWS {
 					e.printStackTrace();
 				}
 				for (int z = 0; z < deps.size(); z++) {
-					computeBackwardSlice(null, all.get(all.indexOf(deps.get(z))-1), deps.get(z).getVariable(), all, true, ((VariableRead) deps.get(z)).getDefiningFunction(), deps.get(z));
+					computeForwardSlice(null, all.get(all.indexOf(deps.get(z))-1), deps.get(z).getVariable(), all, true, ((VariableRead) deps.get(z)).getDefiningFunction(), deps.get(z));
 	                // Add reads related to the write..to the slice
 	                highlightLine(deps.get(z), partialSlice);
 				}
@@ -826,7 +876,7 @@ public class SimpleExample2FWS {
 				                            highlightLine(deps.get(r), partialSlice);
 
 											// CANT be computing slice from bottom
-											computeBackwardSlice(null, all.get(all.indexOf(deps.get(r))-1), deps.get(r).getVariable(), all, true, ((VariableRead) deps.get(r)).getDefiningFunction(), deps.get(r));
+											computeForwardSlice(null, all.get(all.indexOf(deps.get(r))-1), deps.get(r).getVariable(), all, true, ((VariableRead) deps.get(r)).getDefiningFunction(), deps.get(r));
 										}
 									}
 								}
@@ -860,7 +910,7 @@ public class SimpleExample2FWS {
 						for (int r = 0; r < deps.size(); r++) {
 		                      highlightLine(deps.get(r), partialSlice);
 
-							computeBackwardSlice(null, deps.get(r), deps.get(r).getVariable(), all, true, ((VariableRead) deps.get(r)).getDefiningFunction(), deps.get(r));
+							computeForwardSlice(null, deps.get(r), deps.get(r).getVariable(), all, true, ((VariableRead) deps.get(r)).getDefiningFunction(), deps.get(r));
 						}
 					}
 				} catch (Exception e) {
