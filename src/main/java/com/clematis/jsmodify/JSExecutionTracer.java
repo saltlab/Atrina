@@ -1293,5 +1293,174 @@ public class JSExecutionTracer {
 	public static int getCounter() {
 		return counter;
 	}
+	
+	private void retrieveDOMElementCandidates(){
+		String[] args = new String[8];
+
+		try {
+			// Declarations for reading back the written assertion summary
+			String s;
+			String fileContents = "";
+
+			JSONObject testCaseSummary;
+			Iterator<String> assertions;
+			String assertionID;
+			JSONObject singleAssertionSummary;
+			JSONObject lastFailingAssertion;
+			Vector<TraceObject> relatedMutations;
+			// For removing webdriver events
+			Iterator<TraceObject> domEventIterator;
+			Vector<TraceObject> webdriverEvents = new Vector<TraceObject>();
+			TraceObject currentWebDriverEvent;
+
+			ObjectMapper mapper = new ObjectMapper();
+			// Register the module that serializes the Guava Multimap
+			mapper.registerModule(new GuavaModule());
+
+			Multimap<String, TraceObject> traceMap = mapper
+					.<Multimap<String, TraceObject>> readValue(
+							new File("clematis-output/ftrace/function.trace"),
+							new TypeReference<TreeMultimap<String, TraceObject>>() {
+							});
+
+			Collection<TraceObject> timingTraces = traceMap.get("TimingTrace");
+			Collection<TraceObject> domEventTraces = traceMap
+					.get("DOMEventTrace");
+
+			Collection<TraceObject> XHRTraces = traceMap.get("XHRTrace");
+			Collection<TraceObject> functionTraces = traceMap
+					.get("FunctionTrace");
+
+			saveDirectAccessesToFile(WebDriverWrapper.assertionToAccess,
+					WebDriverWrapper.assertionToElements,
+					WebDriverWrapper.assertionOutcomes,
+					WebDriverWrapper.assertionCounters,
+					WebDriverWrapper.assertionTimeStamps,
+					WebDriverWrapper.directAccesses,
+					WebDriverWrapper.assertionLineNumber);
+			File file = new File("domAccesses.json");
+			FileReader fr = new FileReader(file);
+			BufferedReader br = new BufferedReader(fr); 
+
+			// Read assertion accesses and results from file and instantiate JSONObject
+			while((s = br.readLine()) != null) {
+				fileContents += s;
+			}
+			br.close();
+			testCaseSummary = new JSONObject(fileContents);
+
+
+
+
+			// Iterate through DOM events and remove webdriver events (e.g. "evaluate", etc.)
+			domEventIterator = domEventTraces.iterator();
+			while (domEventIterator.hasNext()) {
+				currentWebDriverEvent = domEventIterator.next();
+				if (currentWebDriverEvent instanceof DOMEventTrace && ((DOMEventTrace) currentWebDriverEvent).getEventType().contains("webdriver-")) {
+					webdriverEvents.add(currentWebDriverEvent);
+				}
+			}
+			domEventTraces.removeAll(webdriverEvents);
+
+			// Convert assertions to traceobjects for injection into story
+			ArrayList<TraceObject> seleniumAssertions = new ArrayList<TraceObject>();
+			assertions = testCaseSummary.keys();
+			int numberOfAssertions = 0;
+			while (assertions.hasNext()) {
+				assertions.next();
+				numberOfAssertions++;
+			}
+
+			for (int a = 0; a < numberOfAssertions; a++) {
+				//assertionID = assertions.next();
+				singleAssertionSummary = testCaseSummary.getJSONObject(a+"");
+				int currentAssertionCounter = singleAssertionSummary.getInt("counter");
+
+				// Declare the new assertion trace object
+				SeleniumAssertionTrace newAssertion = new SeleniumAssertionTrace();
+				newAssertion.setCounter(currentAssertionCounter);
+				newAssertion.setTimeStamp(singleAssertionSummary.getLong("timeStamp"));
+				newAssertion.setOutcome(singleAssertionSummary.getString("outcome"));
+				newAssertion.setAssertionID(a);
+				// For front end display
+				newAssertion.setId(7);
+				seleniumAssertions.add(newAssertion);
+			}
+
+
+			story = new Story(domEventTraces, functionTraces, timingTraces, XHRTraces, seleniumAssertions);
+			story.setOrderedTraceList(sortTraceObjects());
+
+			story.setEpisodes(buildEpisodes());
+
+		/*	System.out.println("Total number of assertions:  "+ seleniumAssertions.size());
+			System.out.println("# of trace objects: " + story.getOrderedTraceList().size());
+			System.out.println("# of episodes: " + story.getEpisodes().size());
+*/
+			ArrayList<Episode> bookmarkEpisodes = new ArrayList<Episode>();
+
+
+
+			story.removeUselessEpisodes(bookmarkEpisodes);
+
+	//		System.out.println("# of episodes after trimming: " + story.getEpisodes().size());
+
+
+			// JavaScript episodes for JSUML2
+			Helper.directoryCheck(outputFolder + "/sequence_diagrams/");
+			PrintStream JSepisodes =
+					new PrintStream(outputFolder + "/sequence_diagrams/allEpisodes.js");
+			ArrayList<TraceObject> episodeMutations;
+			ArrayList<TraceObject> episodeDomAccesses;
+			ArrayList<TraceObject> episodeDomAccessesAcrossAllEpisodes=new ArrayList<TraceObject>();
+			ArrayList<TraceObject> episodeTrace;
+			ArrayList<Integer> relatedAssertionsPerMutation;
+			ArrayList<JSONObject> seleniumAccesses;
+			JSONObject singleAccess;
+
+			/*
+			 * If assumming dom mutations can only be related to one assertions (each assertion means that past mutations have been tested)...check for webdriver events ("evaluate") to know which story counter to
+			 *  cut and assertion off at 
+			 * 
+			 * 
+			 * 
+			 */
+			int epNum = -1;
+			int totalNoOfDOMAccesses=0;
+			int totalUniqDOMElementsAccessed=totalNoOfDOMAccesses;
+			// << EPISODE ITERATE >>
+			for (Episode e : story.getEpisodes()) {
+				episodeDomAccessesAcrossAllEpisodes.addAll(e.getDomAccesses());
+				totalNoOfDOMAccesses+=e.getDomAccesses().size();
+
+			}
+			
+			ArrayList<Boolean> areEqual=new ArrayList<Boolean>();
+			for(int i=0;i<episodeDomAccessesAcrossAllEpisodes.size();i++){
+				areEqual.add(false);
+			}
+			for(int i=0;i<episodeDomAccessesAcrossAllEpisodes.size();i++){
+		//		DOMElementAccess domElemAcc=(DOMElementAccess) episodeDomAccesses.get(i);
+				if(!areEqual.get(i)){
+					JSONObject jsonObjDOMAcc=new JSONObject(((DOMElementAccess) episodeDomAccessesAcrossAllEpisodes.get(i)).getElement());
+					for(int j=i+1;j<episodeDomAccessesAcrossAllEpisodes.size();j++){
+						if(!areEqual.get(j)){
+							if (compareHTMLElements(jsonObjDOMAcc,new JSONObject(((DOMElementAccess) episodeDomAccessesAcrossAllEpisodes.get(j)).getElement()))) {
+							
+								areEqual.set(j, true);
+								totalUniqDOMElementsAccessed--;
+							}
+						}
+					}
+				}
+				
+			
+			}
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			
+		}
+	}
 
 }
