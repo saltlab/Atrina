@@ -106,6 +106,8 @@ public class JSExecutionTracer {
 	private static long pageLoadBuffer = 0;
 	private static boolean pageLoadFlag = false;
 	private static long pageLoadTime = -1;
+	private static int totalNoOfDOMAccesses=0;
+	private static int totalUniqDOMElementsAccessed=0;
 	public static long getPageLoadBuffer () {
 		return pageLoadBuffer;
 	}
@@ -1295,7 +1297,7 @@ public class JSExecutionTracer {
 	}
 	
 	private void retrieveDOMElementCandidates(){
-		String[] args = new String[8];
+		
 
 		try {
 			// Declarations for reading back the written assertion summary
@@ -1410,13 +1412,10 @@ public class JSExecutionTracer {
 			Helper.directoryCheck(outputFolder + "/sequence_diagrams/");
 			PrintStream JSepisodes =
 					new PrintStream(outputFolder + "/sequence_diagrams/allEpisodes.js");
-			ArrayList<TraceObject> episodeMutations;
+		
 			ArrayList<TraceObject> episodeDomAccesses;
 			ArrayList<TraceObject> episodeDomAccessesAcrossAllEpisodes=new ArrayList<TraceObject>();
-			ArrayList<TraceObject> episodeTrace;
-			ArrayList<Integer> relatedAssertionsPerMutation;
-			ArrayList<JSONObject> seleniumAccesses;
-			JSONObject singleAccess;
+
 
 			/*
 			 * If assumming dom mutations can only be related to one assertions (each assertion means that past mutations have been tested)...check for webdriver events ("evaluate") to know which story counter to
@@ -1425,9 +1424,9 @@ public class JSExecutionTracer {
 			 * 
 			 * 
 			 */
-			int epNum = -1;
-			int totalNoOfDOMAccesses=0;
-			int totalUniqDOMElementsAccessed=totalNoOfDOMAccesses;
+			
+			totalNoOfDOMAccesses=0;
+			totalUniqDOMElementsAccessed=totalNoOfDOMAccesses;
 			// << EPISODE ITERATE >>
 			for (Episode e : story.getEpisodes()) {
 				episodeDomAccessesAcrossAllEpisodes.addAll(e.getDomAccesses());
@@ -1449,6 +1448,9 @@ public class JSExecutionTracer {
 							
 								areEqual.set(j, true);
 								totalUniqDOMElementsAccessed--;
+							}
+							else{
+								
 							}
 						}
 					}
