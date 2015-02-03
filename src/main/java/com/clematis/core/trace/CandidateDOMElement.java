@@ -10,6 +10,9 @@ import org.json.JSONObject;
 public class CandidateDOMElement {
 	private TraceObject candidateDOMElement;
 	private int numberOfAccesses=0;
+	public CandidateDOMElement(TraceObject domElem){
+		candidateDOMElement=domElem;
+	}
 	public TraceObject getCandidateDOMElement(){
 		return candidateDOMElement;
 	}

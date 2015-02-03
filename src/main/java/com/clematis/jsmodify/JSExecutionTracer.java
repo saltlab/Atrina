@@ -46,6 +46,7 @@ import com.atrina.core.SimpleExample2;
 import com.clematis.core.WebDriverWrapper;
 import com.clematis.core.episode.Episode;
 import com.clematis.core.episode.Story;
+import com.clematis.core.trace.CandidateDOMElement;
 import com.clematis.core.trace.DOMElementAccess;
 import com.clematis.core.trace.DOMElementValueTrace;
 import com.clematis.core.trace.DOMEventTrace;
@@ -108,6 +109,7 @@ public class JSExecutionTracer {
 	private static long pageLoadTime = -1;
 	private static int totalNoOfDOMAccesses=0;
 	private static int totalUniqDOMElementsAccessed=0;
+	private ArrayList<CandidateDOMElement> candidateDOMElements=new ArrayList<CandidateDOMElement>();
 	public static long getPageLoadBuffer () {
 		return pageLoadBuffer;
 	}
@@ -1433,26 +1435,37 @@ public class JSExecutionTracer {
 				totalNoOfDOMAccesses+=e.getDomAccesses().size();
 
 			}
-			
+			ArrayList<CandidateDOMElement> tempCandidateDOMElems=new ArrayList<CandidateDOMElement>();
+			ArrayList<Integer> indexArray=new ArrayList<Integer>();
 			ArrayList<Boolean> areEqual=new ArrayList<Boolean>();
 			for(int i=0;i<episodeDomAccessesAcrossAllEpisodes.size();i++){
 				areEqual.add(false);
+				CandidateDOMElement tempCandid=new CandidateDOMElement(episodeDomAccessesAcrossAllEpisodes.get(i));
+				tempCandid.setNumberOfAccesses(1);
+				tempCandidateDOMElems.add(tempCandid);
 			}
+			int noAcc=1;
 			for(int i=0;i<episodeDomAccessesAcrossAllEpisodes.size();i++){
-		//		DOMElementAccess domElemAcc=(DOMElementAccess) episodeDomAccesses.get(i);
+				indexArray=new ArrayList<Integer>();
+				indexArray.add(i);
+				noAcc=1;
+				//		DOMElementAccess domElemAcc=(DOMElementAccess) episodeDomAccesses.get(i);
 				if(!areEqual.get(i)){
 					JSONObject jsonObjDOMAcc=new JSONObject(((DOMElementAccess) episodeDomAccessesAcrossAllEpisodes.get(i)).getElement());
 					for(int j=i+1;j<episodeDomAccessesAcrossAllEpisodes.size();j++){
 						if(!areEqual.get(j)){
 							if (compareHTMLElements(jsonObjDOMAcc,new JSONObject(((DOMElementAccess) episodeDomAccessesAcrossAllEpisodes.get(j)).getElement()))) {
-							
+								noAcc++;
+								indexArray.add(j);
+								
 								areEqual.set(j, true);
 								totalUniqDOMElementsAccessed--;
 							}
-							else{
-								
-							}
+							
 						}
+					}
+					for(int k=0;k<indexArray.size();k++){
+						tempCandidateDOMElems.get(indexArray.get(k)).setNumberOfAccesses(noAcc);
 					}
 				}
 				
@@ -1463,6 +1476,14 @@ public class JSExecutionTracer {
 			e.printStackTrace();
 			
 		}
+	}
+	
+	private boolean isPotentialCandidateDOMElement(CandidateDOMElement domElem){
+		double threshold=1/totalUniqDOMElementsAccessed;
+		if(domElem.getNumberOfAccesses()>=threshold){
+			return true;
+		}
+		return false;
 	}
 
 }
