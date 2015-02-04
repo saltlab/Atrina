@@ -1473,6 +1473,219 @@ public class JSExecutionTracer {
 			candidateDOMElements=computeCandidateDOMElems(tempCandidateDOMElems);
 			
 			
+			
+			ArrayList<TraceObject> episodeTrace;
+			
+			for (Episode e : story.getEpisodes()) {
+				
+
+				if (e.getSource() instanceof SeleniumAssertionTrace) {
+					// Add in an empty episodes
+					designSequenceDiagram(e, JSepisodes);
+
+					continue;
+				}
+			
+		
+				episodeDomAccesses = e.getDomAccesses();
+				episodeTrace = e.getTrace().getTrace();
+				int closestCounterEnter = -1;
+				long closestTimeEnter = -1;
+				int closestCounterCall = -1;
+				long closestTimeCall = -1;
+				
+
+				// Iterate through all assertions from selenium test case/suite run
+				Iterator<CandidateDOMElement> candidDomElemIt = candidateDOMElements.iterator();
+				// <<  ASSERTION ITERATE  >> 
+				while (candidDomElemIt.hasNext()) {
+
+					CandidateDOMElement candidDomElem = candidDomElemIt.next();
+					TraceObject traceObjectCandidElem=candidDomElem.getCandidateDOMElement();
+
+
+
+				
+				
+
+					// FINDING RELEVANT Mutations
+					// <<  MUTATION ITERATE  >>
+
+
+
+
+						int lineNumber = -1;
+
+					
+
+
+						// <<  cross EPISODE JS ACCESS with Selenium assertion ACCESSE(S)  >>
+
+					
+
+							// look for dom accesses (JS) in this episode
+							// << DOM ELEMEN ACCESS ITERATE >>
+							for (int tt = 0; tt < episodeDomAccesses.size(); tt++) {
+
+								if (episodeDomAccesses.get(tt).getCounter() > traceObjectCandidElem.getCounter()) {
+									continue;
+
+								}
+
+								if (compareHTMLElements(
+										new JSONObject(((DOMElementAccess) traceObjectCandidElem).getElement()), new JSONObject(((DOMElementAccess) episodeDomAccesses.get(tt)).getElement()))) {
+									// link matches to closest Function enters
+
+									// Reset variables when looking for closest 'call' and 'enter'
+									closestCounterEnter = -1;
+									closestTimeEnter = -1;
+
+									closestCounterCall = -1;
+									closestTimeCall = -1;
+
+
+									// closest ENTER and CALL to JS access
+									for (int f = 0; f < episodeTrace.size(); f++) {
+										if (episodeDomAccesses.get(tt).getCounter() > episodeTrace.get(f).getCounter()
+												//&& episodeTrace.get(f).getCounter() - episodeDomAccesses.get(tt).getCounter() < closestCounter
+												&& episodeTrace.get(f) instanceof FunctionEnter) {
+											closestCounterEnter = episodeTrace.get(f).getCounter();
+											closestTimeEnter = episodeTrace.get(f).getTimeStamp();
+										} else if (episodeDomAccesses.get(tt).getCounter() > episodeTrace.get(f).getCounter()
+												//&& episodeTrace.get(f).getCounter() - episodeDomAccesses.get(tt).getCounter() < closestCounter
+												&& episodeTrace.get(f) instanceof FunctionCall
+												&& episodeDomAccesses.get(tt).getCounter() - 1 == episodeTrace.get(f).getCounter()) {
+											closestCounterCall = episodeTrace.get(f).getCounter();
+											closestTimeCall = episodeTrace.get(f).getTimeStamp();
+										}
+									}
+
+
+								
+
+									for (int ff = 0; ff < episodeTrace.size(); ff++) {
+										if (episodeTrace.get(ff).getCounter() == closestCounterCall && closestTimeCall == episodeTrace.get(ff).getTimeStamp()) {
+											System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+											System.out.println("Slicing Criteria: ");
+											System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+										
+											System.out.println("THE ACCESS:  " + episodeDomAccesses.get(tt).getCounter());
+											System.out.println("closest call: " + ((FunctionCall) episodeTrace.get(ff)).getTargetFunction() + "   " + ((FunctionCall) episodeTrace.get(ff)).getCounter());
+											System.out.println("Line number to slice?:  " + ((FunctionCall) episodeTrace.get(ff)).getLineNo());
+											System.out.println(".....................................");
+
+
+
+
+											File getSliceCriteria = new File("src/main/webapp/fish-eye-zoom-camera/"+((FunctionCall) episodeTrace.get(ff)).getScopeName());
+											FileReader fr2 = new FileReader(getSliceCriteria);
+											BufferedReader br2 = new BufferedReader(fr2); 
+											String webAppCode = "";
+
+											// Read assertion accesses and results from file and instantiate JSONObject
+											String s2;
+											int lineCounter = 0;
+											while((s2 = br2.readLine()) != null) {
+												lineCounter++;
+
+												if (lineCounter == ((FunctionCall) episodeTrace.get(ff)).getLineNo()) {
+													// Have reached line of interest for extracting slicing criteria
+													webAppCode += s2;
+													break;
+												}
+
+											}
+											br2.close();
+
+											/* initialize JavaScript context */
+											Context cx = Context.enter();
+
+											/* create a new parser */
+											CompilerEnvirons compilerEnvirons =  new CompilerEnvirons();
+											compilerEnvirons.setRecordingLocalJsDocComments(true);
+											compilerEnvirons.setAllowSharpComments(true);
+											compilerEnvirons.setRecordingComments(true);
+											compilerEnvirons.setOptimizationLevel(0);
+											Parser rhinoParser = new Parser(compilerEnvirons, cx.getErrorReporter());
+
+											/* parse some script and save it in AST */
+											System.out.println(webAppCode);
+											AstRoot ast = rhinoParser.parse(new String(webAppCode), ((FunctionCall) episodeTrace.get(ff)).getScopeName(), 0);
+
+
+											int lineType = ast.getType();
+
+											System.out.println("Found JS line responsible for DOM update:  ");
+											System.out.println(webAppCode);
+											SlicingCriteriaExtractor sce = new SlicingCriteriaExtractor();
+											ast.visit(sce);
+
+
+
+											if (sce.getDependencies().size() > 0) {
+												// The DOM-updating JavaScript line has some RHS dependencies (variables, etc.)
+												Iterator<AstNode> it = sce.getDependencies().iterator();
+												AstNode next;
+												while (it.hasNext()) {
+													next = it.next();
+													System.out.println(next.toSource());
+													if (next instanceof Name) {
+														next.setLineno(lineCounter);
+														slicingCriteria.add((Name) next);
+													}
+												}
+											} else {
+												// The DOM-updating JavaScript line has no dependencies (e.g. Updating DOM with hard-coded String value)
+												Name next = new Name();
+												next.setLineno(lineCounter);
+												slicingCriteria.add(next);
+											}
+
+											sce.clearDependencies();
+
+											break;
+										}
+									}
+
+
+
+
+
+									// 4. call 'setAssertions' on that function enter 
+									// 5. line 427 of JSUml2Story, change args for message in sequence diagram to string of affected assertions
+								}
+							}
+						
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+					}
+
+					// Create pic files for each episode's sequence diagram
+				}
+			
+
+				// Once all episodes have been saved to JS file, close
+			
+
+			
+			
+			
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -1498,6 +1711,9 @@ public class JSExecutionTracer {
 	}
 	public ArrayList<CandidateDOMElement> getCandidateDOMElements(){
 		return candidateDOMElements;
+	}
+	public void clearSlicingCriteria(){
+		slicingCriteria=new ArrayList<Name>();
 	}
 
 }
