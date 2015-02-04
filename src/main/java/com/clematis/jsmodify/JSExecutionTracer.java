@@ -109,7 +109,7 @@ public class JSExecutionTracer {
 	private static long pageLoadTime = -1;
 	private static int totalNoOfDOMAccesses=0;
 	private static int totalUniqDOMElementsAccessed=0;
-	private ArrayList<CandidateDOMElement> candidateDOMElements=new ArrayList<CandidateDOMElement>();
+	private static ArrayList<CandidateDOMElement> candidateDOMElements=new ArrayList<CandidateDOMElement>();
 	public static long getPageLoadBuffer () {
 		return pageLoadBuffer;
 	}
@@ -1308,10 +1308,9 @@ public class JSExecutionTracer {
 
 			JSONObject testCaseSummary;
 			Iterator<String> assertions;
-			String assertionID;
+	
 			JSONObject singleAssertionSummary;
-			JSONObject lastFailingAssertion;
-			Vector<TraceObject> relatedMutations;
+	
 			// For removing webdriver events
 			Iterator<TraceObject> domEventIterator;
 			Vector<TraceObject> webdriverEvents = new Vector<TraceObject>();
@@ -1471,6 +1470,9 @@ public class JSExecutionTracer {
 				
 			
 			}
+			candidateDOMElements=computeCandidateDOMElems(tempCandidateDOMElems);
+			
+			
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -1479,11 +1481,23 @@ public class JSExecutionTracer {
 	}
 	
 	private boolean isPotentialCandidateDOMElement(CandidateDOMElement domElem){
-		double threshold=1/totalUniqDOMElementsAccessed;
+		double threshold=((double)1)/totalUniqDOMElementsAccessed;
 		if(domElem.getNumberOfAccesses()>=threshold){
 			return true;
 		}
 		return false;
+	}
+	private ArrayList<CandidateDOMElement> computeCandidateDOMElems(ArrayList<CandidateDOMElement> candidDOMElems){
+		ArrayList<CandidateDOMElement> returnMe=new ArrayList<CandidateDOMElement>();
+		for(int i=0;i<candidDOMElems.size();i++){
+			if(isPotentialCandidateDOMElement(candidDOMElems.get(i))){
+				returnMe.add(candidDOMElems.get(i));
+			}
+		}
+		return returnMe;
+	}
+	public ArrayList<CandidateDOMElement> getCandidateDOMElements(){
+		return candidateDOMElements;
 	}
 
 }
