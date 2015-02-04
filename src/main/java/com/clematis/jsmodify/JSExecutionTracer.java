@@ -1647,45 +1647,17 @@ public class JSExecutionTracer {
 										}
 									}
 
-
-
-
-
-									// 4. call 'setAssertions' on that function enter 
-									// 5. line 427 of JSUml2Story, change args for message in sequence diagram to string of affected assertions
 								}
 							}
-						
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+					
 
 					}
 
-					// Create pic files for each episode's sequence diagram
+			
 				}
+			writeStoryToDisk();
 			
-
-				// Once all episodes have been saved to JS file, close
-			
-
-			
-			
-			
+		
 		}
 		catch (Exception e) {
 			e.printStackTrace();
