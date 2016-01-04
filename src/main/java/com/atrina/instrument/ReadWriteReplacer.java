@@ -230,11 +230,7 @@ public class ReadWriteReplacer extends AstInstrumenter {
 		return null;
 	}
 
-	private boolean targetIsChild(Name node) {
-		SimpleSearcher ss = new SimpleSearcher();
 
-		return ss.checkIfChild(node);
-	}
 
 	@Override
 	public AstNode createNode(FunctionNode function, String postfix, int lineNo) {

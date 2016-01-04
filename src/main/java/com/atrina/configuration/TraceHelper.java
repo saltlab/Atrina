@@ -8,7 +8,6 @@ import org.mozilla.javascript.ast.Scope;
 
 import com.atrina.core.trace.ArgumentRead;
 import com.atrina.core.trace.ArgumentWrite;
-import com.atrina.core.trace.FunctionEnter;
 import com.atrina.core.trace.PropertyRead;
 import com.atrina.core.trace.RWOperation;
 import com.atrina.core.trace.ReturnStatementValue;

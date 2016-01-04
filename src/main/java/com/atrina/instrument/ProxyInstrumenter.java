@@ -27,8 +27,6 @@ import org.mozilla.javascript.ast.Symbol;
 import org.mozilla.javascript.ast.VariableDeclaration;
 import org.mozilla.javascript.ast.VariableInitializer;
 
-import com.gargoylesoftware.htmlunit.javascript.host.Document;
-
 public class ProxyInstrumenter extends AstInstrumenter {
 
 	private static final String TOOLNAME = "_dyno";
